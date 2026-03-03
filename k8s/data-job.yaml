@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: data-generator
+  namespace: mapreduce
+  labels:
+    app: data-generator
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: data-generator
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: generator
+          image: mapreduce:latest
+          imagePullPolicy: Never
+          args:
+            - generate_data.py
+            - --rows
+            - "10000000"
+            - --output
+            - /data/input.csv
+            - --seed
+            - "42"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          volumeMounts:
+            - name: data-vol
+              mountPath: /data
+      volumes:
+        - name: data-vol
+          hostPath:
+            path: /tmp/mapreduce
+            type: DirectoryOrCreate

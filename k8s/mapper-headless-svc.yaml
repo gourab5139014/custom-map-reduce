@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mapper-headless
+  namespace: mapreduce
+  labels:
+    app: mapper
+spec:
+  clusterIP: None
+  selector:
+    app: mapper
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+  publishNotReadyAddresses: true

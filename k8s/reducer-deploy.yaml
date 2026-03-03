@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reducer
+  namespace: mapreduce
+  labels:
+    app: reducer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reducer
+  template:
+    metadata:
+      labels:
+        app: reducer
+    spec:
+      containers:
+        - name: reducer
+          image: mapreduce:latest
+          imagePullPolicy: Never
+          args:
+            - topx.py
+            - --mode
+            - reducer
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: NUM_MAPPERS
+              value: "3"
+            - name: MAPPER_SVC
+              value: mapper-headless
+            - name: NAMESPACE
+              value: mapreduce
+            - name: TOP_X
+              value: "10"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3

@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mapper
+  namespace: mapreduce
+  labels:
+    app: mapper
+spec:
+  serviceName: mapper-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mapper
+  template:
+    metadata:
+      labels:
+        app: mapper
+    spec:
+      initContainers:
+        - name: wait-for-data
+          image: mapreduce:latest
+          imagePullPolicy: Never
+          command:
+            - python3
+            - -c
+            - |
+              import os, time
+              path = '/data/metadata.json'
+              print('Waiting for data file...')
+              while not os.path.exists(path):
+                  print(f'  {path} not ready, retrying...')
+                  time.sleep(3)
+              print('Data ready.')
+          volumeMounts:
+            - name: data-vol
+              mountPath: /data
+              readOnly: true
+      containers:
+        - name: mapper
+          image: mapreduce:latest
+          imagePullPolicy: Never
+          args:
+            - topx.py
+            - --mode
+            - mapper
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: NUM_PODS
+              value: "3"
+            - name: DATA_FILE
+              value: /data/input.csv
+            - name: TOP_X
+              value: "10"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            requests:
+              cpu: "300m"
+              memory: "256Mi"
+            limits:
+              cpu: "600m"
+              memory: "512Mi"
+          volumeMounts:
+            - name: data-vol
+              mountPath: /data
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: data-vol
+          hostPath:
+            path: /tmp/mapreduce
+            type: DirectoryOrCreate
